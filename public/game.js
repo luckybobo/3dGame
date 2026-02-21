@@ -10,7 +10,7 @@ const CONFIG = {
     JUMP_POWER: 0.22,
     GRAVITY: -0.018,
     
-    INTERACTION_DISTANCE: 5,
+    INTERACTION_DISTANCE: 8,
     WORLD_SIZE: 40
 };
 
@@ -93,16 +93,13 @@ class TextureGenerator {
         canvas.height = 16;
         const ctx = canvas.getContext('2d');
 
-        // 身体
         ctx.fillStyle = color;
         ctx.fillRect(4, 4, 8, 8);
         
-        // 眼睛
         ctx.fillStyle = '#000000';
         ctx.fillRect(6, 6, 2, 2);
         ctx.fillRect(10, 6, 2, 2);
         
-        // 嘴巴
         ctx.fillStyle = '#8b4513';
         ctx.fillRect(8, 10, 2, 1);
 
@@ -117,7 +114,9 @@ class TextureGenerator {
 
 // ==================== 方块管理 ====================
 class BlockManager {
-    constructor() {
+    constructor(scene, textureGen) {
+        this.scene = scene;
+        this.textureGen = textureGen;
         this.blocks = new Map();
         this.blockMeshes = new Map();
     }
@@ -126,20 +125,47 @@ class BlockManager {
         return `${Math.round(x)},${Math.round(y)},${Math.round(z)}`;
     }
     
-    addBlock(x, y, z, type, mesh) {
+    createBlock(x, y, z, type) {
         const key = this.getKey(x, y, z);
-        this.blocks.set(key, { x, y, z, type, mesh });
-        this.blockMeshes.set(mesh, key);
+        
+        // 检查是否已有方块
+        if (this.blocks.has(key)) {
+            return null;
+        }
+        
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const item = Object.values(ItemTypes).find(i => i.id === type) || ItemTypes.STONE;
+        const material = new THREE.MeshStandardMaterial({
+            map: this.textureGen.createBlockTexture(item.color, item.pattern),
+            emissive: 0x000000
+        });
+        
+        const block = new THREE.Mesh(geometry, material);
+        block.position.set(x, y, z);
+        
+        this.scene.add(block);
+        this.blocks.set(key, { x, y, z, type, mesh: block });
+        this.blockMeshes.set(block, key);
+        
+        return block;
     }
     
     removeBlock(x, y, z) {
         const key = this.getKey(x, y, z);
         const block = this.blocks.get(key);
-        if (block) {
+        
+        if (block && block.mesh) {
+            this.scene.remove(block.mesh);
             this.blockMeshes.delete(block.mesh);
             this.blocks.delete(key);
+            
+            // 清理资源
+            block.mesh.geometry.dispose();
+            block.mesh.material.dispose();
+            
             return block;
         }
+        
         return null;
     }
     
@@ -209,6 +235,29 @@ class BlockManager {
                  box2.maxZ <= box1.minZ || 
                  box2.minZ >= box1.maxZ);
     }
+    
+    syncBlocks(blocksData) {
+        console.log(`同步 ${blocksData.length} 个方块`);
+        
+        // 清除所有现有方块
+        this.blocks.forEach((block, key) => {
+            if (block.mesh) {
+                this.scene.remove(block.mesh);
+                block.mesh.geometry.dispose();
+                block.mesh.material.dispose();
+            }
+        });
+        
+        this.blocks.clear();
+        this.blockMeshes.clear();
+        
+        // 重新创建所有方块
+        blocksData.forEach(blockData => {
+            this.createBlock(blockData.x, blockData.y, blockData.z, blockData.type);
+        });
+        
+        console.log(`同步完成，当前有 ${this.blocks.size} 个方块`);
+    }
 }
 
 // ==================== 玩家管理 ====================
@@ -216,7 +265,7 @@ class PlayerManager {
     constructor(scene, textureGen) {
         this.scene = scene;
         this.textureGen = textureGen;
-        this.players = new Map(); // 存储其他玩家
+        this.players = new Map();
         this.localPlayerId = null;
     }
     
@@ -263,14 +312,11 @@ class PlayerManager {
         rightLeg.position.set(0.25, 0.2, 0);
         group.add(rightLeg);
         
-        // 设置位置和旋转
         group.position.set(playerData.x, playerData.y, playerData.z);
         group.rotation.y = playerData.rotation || 0;
         
-        // 添加到场景
         this.scene.add(group);
         
-        // 存储玩家
         this.players.set(playerData.id, {
             mesh: group,
             data: playerData
@@ -306,7 +352,7 @@ class MultiplayerGame {
     constructor() {
         // 初始化
         this.textureGen = new TextureGenerator();
-        this.blockManager = new BlockManager();
+        this.blockManager = null;
         this.playerManager = null;
         this.keys = {};
         this.velocity = new THREE.Vector3(0, 0, 0);
@@ -335,8 +381,7 @@ class MultiplayerGame {
         this.raycaster = new THREE.Raycaster();
         this.clock = new THREE.Clock();
         
-        // 网络消息队列
-        this.messageQueue = [];
+        // 网络
         this.lastNetworkUpdate = 0;
         
         this.init();
@@ -344,7 +389,6 @@ class MultiplayerGame {
 
     init() {
         this.initThree();
-        this.initWorld();
         this.initWebSocket();
         this.initEventListeners();
         this.updateHotbarDisplay();
@@ -374,95 +418,9 @@ class MultiplayerGame {
         dirLight.position.set(1, 2, 1);
         this.scene.add(dirLight);
         
-        // 初始化玩家管理器
+        // 初始化管理器
+        this.blockManager = new BlockManager(this.scene, this.textureGen);
         this.playerManager = new PlayerManager(this.scene, this.textureGen);
-    }
-
-    initWorld() {
-        // 创建基础地形
-        const size = CONFIG.WORLD_SIZE;
-        
-        // 地面层
-        for (let x = -size; x < size; x++) {
-            for (let z = -size; z < size; z++) {
-                this.createBlock(x, -1, z, 'grass');
-            }
-        }
-        
-        // 添加一些地形起伏
-        for (let i = 0; i < 50; i++) {
-            const x = Math.floor(Math.random() * 30 - 15);
-            const z = Math.floor(Math.random() * 30 - 15);
-            
-            for (let y = 0; y < 2; y++) {
-                this.createBlock(x, y, z, y === 1 ? 'grass' : 'dirt');
-            }
-        }
-        
-        // 添加树木
-        for (let i = 0; i < 10; i++) {
-            const x = Math.floor(Math.random() * 30 - 15);
-            const z = Math.floor(Math.random() * 30 - 15);
-            this.addTree(x, 0, z);
-        }
-        
-        // 测试结构
-        this.createBlock(5, 0, 5, 'brick');
-        this.createBlock(5, 1, 5, 'brick');
-        this.createBlock(5, 2, 5, 'brick');
-        
-        this.createBlock(8, 0, 8, 'glass');
-        this.createBlock(8, 1, 8, 'glass');
-    }
-    
-    createBlock(x, y, z, type) {
-        if (this.blockManager.getBlock(x, y, z)) {
-            return null;
-        }
-        
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const item = Object.values(ItemTypes).find(i => i.id === type) || ItemTypes.STONE;
-        const material = new THREE.MeshStandardMaterial({
-            map: this.textureGen.createBlockTexture(item.color, item.pattern),
-            emissive: 0x000000
-        });
-        
-        const block = new THREE.Mesh(geometry, material);
-        block.position.set(x, y, z);
-        
-        this.scene.add(block);
-        this.blockManager.addBlock(x, y, z, type, block);
-        
-        return block;
-    }
-    
-    removeBlock(x, y, z) {
-        const block = this.blockManager.removeBlock(x, y, z);
-        if (block && block.mesh) {
-            this.scene.remove(block.mesh);
-            block.mesh.geometry.dispose();
-            block.mesh.material.dispose();
-        }
-    }
-    
-    addTree(x, y, z) {
-        for (let i = 0; i < 4; i++) {
-            this.createBlock(x, y + i, z, 'wood');
-        }
-        
-        const leafPositions = [
-            [x, y + 4, z],
-            [x + 1, y + 3, z],
-            [x - 1, y + 3, z],
-            [x, y + 3, z + 1],
-            [x, y + 3, z - 1]
-        ];
-        
-        leafPositions.forEach(([lx, ly, lz]) => {
-            if (Math.random() > 0.3) {
-                this.createBlock(lx, ly, lz, 'leaf');
-            }
-        });
     }
 
     initWebSocket() {
@@ -491,28 +449,34 @@ class MultiplayerGame {
                 document.getElementById('playerId').textContent = this.clientId;
                 this.playerManager.localPlayerId = this.clientId;
                 
+                console.log(`收到初始化数据，${data.blocks.length} 个方块`);
+                
+                // 同步所有方块
+                if (data.blocks && data.blocks.length > 0) {
+                    this.blockManager.syncBlocks(data.blocks);
+                }
+                
                 // 创建所有其他玩家
-                data.players.forEach(playerData => {
-                    if (playerData.id !== this.clientId) {
-                        this.playerManager.createPlayer(playerData);
-                    }
-                });
+                if (data.players) {
+                    data.players.forEach(playerData => {
+                        if (playerData.id !== this.clientId) {
+                            this.playerManager.createPlayer(playerData);
+                        }
+                    });
+                }
                 break;
                 
             case 'playerJoined':
-                // 新玩家加入
                 if (data.player.id !== this.clientId) {
                     this.playerManager.createPlayer(data.player);
                 }
                 break;
                 
             case 'playerLeft':
-                // 玩家离开
                 this.playerManager.removePlayer(data.clientId);
                 break;
                 
             case 'playerMoved':
-                // 玩家移动
                 if (data.clientId !== this.clientId) {
                     this.playerManager.updatePlayer(data.clientId, {
                         x: data.x,
@@ -521,6 +485,18 @@ class MultiplayerGame {
                         rotation: data.rotation
                     });
                 }
+                break;
+                
+            case 'blockPlaced':
+                console.log(`其他玩家放置方块: ${data.x},${data.y},${data.z} 类型: ${data.blockType}`);
+                // 其他玩家放置方块 - 总是创建，不管是谁
+                this.blockManager.createBlock(data.x, data.y, data.z, data.blockType);
+                break;
+                
+            case 'blockRemoved':
+                console.log(`其他玩家移除方块: ${data.x},${data.y},${data.z}`);
+                // 其他玩家破坏方块 - 总是移除，不管是谁
+                this.blockManager.removeBlock(data.x, data.y, data.z);
                 break;
         }
     }
@@ -596,16 +572,30 @@ class MultiplayerGame {
                 
                 if (distance > CONFIG.INTERACTION_DISTANCE) return;
                 
-                if (e.button === 0) {
-                    this.removeBlock(hitBlock.x, hitBlock.y, hitBlock.z);
+                if (e.button === 0) { // 左键破坏
+                    console.log(`破坏方块: ${hitBlock.x},${hitBlock.y},${hitBlock.z}`);
                     
+                    // 本地删除
+                    this.blockManager.removeBlock(hitBlock.x, hitBlock.y, hitBlock.z);
+                    
+                    // 添加到物品栏
                     const slot = this.hotbar.findIndex(s => s.type === hitBlock.type);
                     if (slot >= 0) {
                         this.hotbar[slot].count = Math.min(64, this.hotbar[slot].count + 1);
                         this.updateHotbarDisplay();
                     }
                     
-                } else if (e.button === 2) {
+                    // 发送到服务器
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({
+                            type: 'removeBlock',
+                            x: hitBlock.x,
+                            y: hitBlock.y,
+                            z: hitBlock.z
+                        }));
+                    }
+                    
+                } else if (e.button === 2) { // 右键放置
                     const normal = intersects[0].face.normal;
                     const placeX = Math.round(hitBlock.x + normal.x);
                     const placeY = Math.round(hitBlock.y + normal.y);
@@ -614,6 +604,7 @@ class MultiplayerGame {
                     const placePos = new THREE.Vector3(placeX, placeY, placeZ);
                     if (this.camera.position.distanceTo(placePos) > CONFIG.INTERACTION_DISTANCE) return;
                     
+                    // 检查位置是否被占用
                     if (this.blockManager.getBlock(placeX, placeY, placeZ)) return;
                     
                     // 检查是否与玩家重叠
@@ -641,9 +632,23 @@ class MultiplayerGame {
                     
                     const selectedItem = this.hotbar[this.selectedSlot];
                     if (selectedItem.count > 0) {
-                        this.createBlock(placeX, placeY, placeZ, selectedItem.type);
+                        console.log(`放置方块: ${placeX},${placeY},${placeZ} 类型: ${selectedItem.type}`);
+                        
+                        // 本地放置
+                        this.blockManager.createBlock(placeX, placeY, placeZ, selectedItem.type);
                         selectedItem.count--;
                         this.updateHotbarDisplay();
+                        
+                        // 发送到服务器
+                        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                            this.ws.send(JSON.stringify({
+                                type: 'placeBlock',
+                                x: placeX,
+                                y: placeY,
+                                z: placeZ,
+                                blockType: selectedItem.type
+                            }));
+                        }
                     }
                 }
             }
@@ -773,7 +778,7 @@ class MultiplayerGame {
         // 发送位置更新到服务器
         const now = Date.now();
         if (this.ws && this.ws.readyState === WebSocket.OPEN && (moved || this.velocity.y !== 0)) {
-            if (now - this.lastNetworkUpdate > 50) { // 限制20fps的更新频率
+            if (now - this.lastNetworkUpdate > 50) {
                 this.ws.send(JSON.stringify({
                     type: 'playerMove',
                     x: this.camera.position.x,

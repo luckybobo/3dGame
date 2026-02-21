@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3DGame</title>
+    <title>3D</title>
     <style>
         body {
             margin: 0;
@@ -222,7 +222,7 @@
     
     <div id="hud">
         <p>ID: <span id="playerId">waiting for connect...</span></p>
-        <p>location: <span id="coordinates">0, 0, 0</span></p>
+        <p>condition: <span id="coordinates">0, 0, 0</span></p>
     </div>
     
     <div id="fps-counter">FPS: 60</div>
@@ -230,7 +230,7 @@
     <div id="crosshair"></div>
     
     <div id="hotbar">
-        <div class="hotbar-slot" data-slot="1">⛰️<br><small>64</small></div>
+        <div class="hotbar-slot selected" data-slot="1">⛰️<br><small>64</small></div>
         <div class="hotbar-slot" data-slot="2">🌿<br><small>64</small></div>
         <div class="hotbar-slot" data-slot="3">🪵<br><small>64</small></div>
         <div class="hotbar-slot" data-slot="4">🍃<br><small>64</small></div>
@@ -241,7 +241,7 @@
     </div>
     
     <div id="interaction-distance">
-        📏 交互距离: 5米
+         交互距离: 8米
     </div>
     
     <div id="controls">
@@ -270,28 +270,6 @@
                 document.getElementById('instruction').classList.add('hidden');
             }, 5000);
         });
-        
-        // FPS计数器
-        let fps = 60;
-        let lastTime = performance.now();
-        let frames = 0;
-        
-        function updateFPS() {
-            frames++;
-            const now = performance.now();
-            const delta = now - lastTime;
-            
-            if (delta >= 1000) {
-                fps = frames;
-                document.getElementById('fps-counter').textContent = `FPS: ${fps}`;
-                frames = 0;
-                lastTime = now;
-            }
-            
-            requestAnimationFrame(updateFPS);
-        }
-        
-        requestAnimationFrame(updateFPS);
         
         // 热栏选择
         document.querySelectorAll('.hotbar-slot').forEach((slot, index) => {
