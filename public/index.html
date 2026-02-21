@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3DGame</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            background: #000;
+        }
+        
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            text-shadow: 2px 2px 0 #000;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 4px;
+            border: 2px solid #888;
+            pointer-events: none;
+            z-index: 1000;
+            font-size: 14px;
+        }
+        
+        #hud h1 {
+            margin: 0 0 5px 0;
+            font-size: 18px;
+            color: #ffff55;
+        }
+        
+        #hud p {
+            margin: 3px 0;
+        }
+        
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: white;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.5);
+        }
+        
+        #crosshair::before {
+            width: 2px;
+            height: 20px;
+            left: 9px;
+            top: 0;
+        }
+        
+        #crosshair::after {
+            width: 20px;
+            height: 2px;
+            left: 0;
+            top: 9px;
+        }
+        
+        #hotbar {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 4px;
+            background: rgba(0,0,0,0.8);
+            padding: 8px;
+            border: 3px solid #888;
+            border-radius: 8px;
+            z-index: 1000;
+        }
+        
+        .hotbar-slot {
+            width: 60px;
+            height: 60px;
+            background: #444;
+            border: 2px solid #666;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            text-shadow: 1px 1px 0 #000;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        
+        .hotbar-slot.selected {
+            border-color: #ffff55;
+            background: #555;
+            transform: scale(1.1);
+            box-shadow: 0 0 10px #ffff55;
+        }
+        
+        .hotbar-slot small {
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: white;
+            text-shadow: 1px 1px 0 #000;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border: 2px solid #888;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+        
+        #controls h3 {
+            margin: 0 0 5px 0;
+            color: #55ffff;
+        }
+        
+        #controls p {
+            margin: 2px 0;
+        }
+        
+        #fps-counter {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #0f0;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 10px;
+            border: 2px solid #888;
+            border-radius: 4px;
+            font-family: monospace;
+            z-index: 1000;
+        }
+        
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 24px;
+            z-index: 2000;
+            transition: opacity 0.5s;
+        }
+        
+        #loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        #instruction {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            text-align: center;
+            background: rgba(0,0,0,0.7);
+            padding: 20px;
+            border: 2px solid #ffff55;
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 1500;
+            transition: opacity 0.3s;
+        }
+        
+        #instruction.hidden {
+            opacity: 0;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #interaction-distance {
+            position: absolute;
+            bottom: 100px;
+            left: 20px;
+            color: white;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 10px;
+            border: 2px solid #888;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div>loading...</div>
+    </div>
+    
+    <div id="instruction">
+        <h2>点击游戏画面开始</h2>
+        <p>WASD - 移动 | 空格 - 跳跃 | 鼠标 - 视角</p>
+        <p>左键 - 破坏 | 右键 - 放置 | 1-8 - 切换物品</p>
+    </div>
+    
+    <div id="hud">
+        <p>ID: <span id="playerId">waiting for connect...</span></p>
+        <p>location: <span id="coordinates">0, 0, 0</span></p>
+    </div>
+    
+    <div id="fps-counter">FPS: 60</div>
+    
+    <div id="crosshair"></div>
+    
+    <div id="hotbar">
+        <div class="hotbar-slot" data-slot="1">⛰️<br><small>64</small></div>
+        <div class="hotbar-slot" data-slot="2">🌿<br><small>64</small></div>
+        <div class="hotbar-slot" data-slot="3">🪵<br><small>64</small></div>
+        <div class="hotbar-slot" data-slot="4">🍃<br><small>64</small></div>
+        <div class="hotbar-slot" data-slot="5">🟫<br><small>64</small></div>
+        <div class="hotbar-slot" data-slot="6">⏳<br><small>64</small></div>
+        <div class="hotbar-slot" data-slot="7">🧱<br><small>64</small></div>
+        <div class="hotbar-slot" data-slot="8">🔮<br><small>64</small></div>
+    </div>
+    
+    <div id="interaction-distance">
+        📏 交互距离: 5米
+    </div>
+    
+    <div id="controls">
+        <h3>控制</h3>
+        <p>WASD - 移动</p>
+        <p>空格 - 跳跃</p>
+        <p>鼠标 - 视角</p>
+        <p>左键 - 破坏</p>
+        <p>右键 - 放置</p>
+        <p>1-8 - 切换物品</p>
+    </div>
+
+    <!-- 引入Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- 引入游戏主文件 -->
+    <script src="game.js"></script>
+    
+    <script>
+        // 隐藏加载画面
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('loading').classList.add('hidden');
+            }, 1500);
+            
+            setTimeout(() => {
+                document.getElementById('instruction').classList.add('hidden');
+            }, 5000);
+        });
+        
+        // FPS计数器
+        let fps = 60;
+        let lastTime = performance.now();
+        let frames = 0;
+        
+        function updateFPS() {
+            frames++;
+            const now = performance.now();
+            const delta = now - lastTime;
+            
+            if (delta >= 1000) {
+                fps = frames;
+                document.getElementById('fps-counter').textContent = `FPS: ${fps}`;
+                frames = 0;
+                lastTime = now;
+            }
+            
+            requestAnimationFrame(updateFPS);
+        }
+        
+        requestAnimationFrame(updateFPS);
+        
+        // 热栏选择
+        document.querySelectorAll('.hotbar-slot').forEach((slot, index) => {
+            slot.addEventListener('click', () => {
+                document.querySelectorAll('.hotbar-slot').forEach(s => s.classList.remove('selected'));
+                slot.classList.add('selected');
+            });
+        });
+    </script>
+</body>
+</html>
