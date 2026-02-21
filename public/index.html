@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D联机游戏</title>
+    <title>3D</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         #hud {
@@ -16,11 +16,26 @@
             top: 20px;
             left: 20px;
             color: white;
-            text-shadow: 2px 2px 0 #000;
-            background: rgba(0,0,0,0.5);
-            padding: 10px 20px;
-            border-radius: 4px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(5px);
+            padding: 15px 25px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
             z-index: 1000;
+            font-family: 'Courier New', monospace;
+        }
+        
+        #hud h3 {
+            margin: 0 0 10px 0;
+            color: #ffaa00;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        #hud p {
+            margin: 5px 0;
+            font-size: 14px;
         }
         
         #crosshair {
@@ -28,8 +43,8 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 20px;
-            height: 20px;
+            width: 30px;
+            height: 30px;
             pointer-events: none;
             z-index: 1000;
         }
@@ -38,21 +53,23 @@
         #crosshair::after {
             content: '';
             position: absolute;
-            background: white;
+            background: rgba(255,255,255,0.8);
+            box-shadow: 0 0 10px rgba(255,255,255,0.5);
+            border-radius: 2px;
         }
         
         #crosshair::before {
             width: 2px;
-            height: 20px;
-            left: 9px;
+            height: 30px;
+            left: 14px;
             top: 0;
         }
         
         #crosshair::after {
-            width: 20px;
+            width: 30px;
             height: 2px;
             left: 0;
-            top: 9px;
+            top: 14px;
         }
         
         #hotbar {
@@ -61,34 +78,61 @@
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 4px;
-            background: rgba(0,0,0,0.8);
-            padding: 8px;
-            border-radius: 8px;
+            gap: 8px;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            padding: 12px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             z-index: 1000;
         }
         
         .hotbar-slot {
-            width: 60px;
-            height: 60px;
-            background: #444;
-            border: 2px solid #666;
-            border-radius: 4px;
+            width: 70px;
+            height: 70px;
+            background: rgba(50,50,50,0.8);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: 28px;
             color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hotbar-slot::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .hotbar-slot:hover::before {
+            left: 100%;
         }
         
         .hotbar-slot.selected {
-            border-color: #ffff55;
-            background: #555;
+            border-color: #ffaa00;
+            background: rgba(80,80,80,0.9);
+            transform: scale(1.1);
+            box-shadow: 0 0 20px #ffaa00;
         }
         
         .hotbar-slot small {
-            font-size: 12px;
+            font-size: 14px;
+            color: #aaa;
+            margin-top: 5px;
         }
         
         #controls {
@@ -96,33 +140,162 @@
             bottom: 20px;
             right: 20px;
             color: white;
-            background: rgba(0,0,0,0.5);
-            padding: 10px;
-            border-radius: 4px;
-            font-size: 12px;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(5px);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            font-size: 13px;
+            line-height: 1.6;
             z-index: 1000;
+        }
+        
+        #controls h4 {
+            margin: 0 0 10px 0;
+            color: #88ccff;
+            text-align: center;
+        }
+        
+        #controls p {
+            margin: 5px 0;
+        }
+        
+        #controls kbd {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: monospace;
         }
         
         #fps-counter {
             position: absolute;
             top: 20px;
             right: 20px;
-            color: #0f0;
-            background: rgba(0,0,0,0.5);
-            padding: 5px 10px;
-            border-radius: 4px;
+            color: #88ff88;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(5px);
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            font-family: monospace;
+            font-size: 14px;
             z-index: 1000;
+        }
+        
+        #time-display {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(5px);
+            padding: 8px 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            font-size: 14px;
+            z-index: 1000;
+        }
+        
+        #instruction {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            text-align: center;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(10px);
+            padding: 30px 50px;
+            border-radius: 20px;
+            border: 2px solid #ffaa00;
+            box-shadow: 0 0 50px rgba(255,170,0,0.3);
+            z-index: 2000;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+        
+        #instruction.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        #instruction h2 {
+            margin: 0 0 20px 0;
+            color: #ffaa00;
+            font-size: 32px;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+        }
+        
+        #instruction p {
+            margin: 10px 0;
+            font-size: 18px;
+        }
+        
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a2a3a 0%, #0a1a2a 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 3000;
+            transition: opacity 0.5s;
+        }
+        
+        #loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loader {
+            width: 80px;
+            height: 80px;
+            border: 5px solid rgba(255,255,255,0.1);
+            border-top: 5px solid #ffaa00;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 30px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        #loading p {
+            font-size: 20px;
+            letter-spacing: 2px;
         }
     </style>
 </head>
 <body>
+    <div id="loading">
+        <div class="loader"></div>
+        <p>加载世界中...</p>
+    </div>
+    
+    <!-- <div id="instruction">
+        <p>点击画面开始游戏</p>
+        <p>WASD 移动 | 空格 跳跃 | 鼠标 视角</p>
+        <p>左键 破坏 | 右键 放置</p>
+        <p>1-9 切换物品</p>
+    </div> -->
+    
     <div id="hud">
-        <h3>3D联机游戏</h3>
         <p>ID: <span id="playerId">等待连接...</span></p>
         <p>坐标: <span id="coordinates">0, 0, 0</span></p>
     </div>
     
     <div id="fps-counter">FPS: 60</div>
+    <!-- <div id="time-display">🌞 白天</div> -->
     <div id="crosshair"></div>
     
     <div id="hotbar">
@@ -133,17 +306,63 @@
         <div class="hotbar-slot">🟫<br><small>64</small></div>
         <div class="hotbar-slot">🧱<br><small>64</small></div>
         <div class="hotbar-slot">🔮<br><small>64</small></div>
+        <div class="hotbar-slot">🪙<br><small>64</small></div>
+        <div class="hotbar-slot">💎<br><small>64</small></div>
+        <div class="hotbar-slot">⚫<br><small>64</small></div>
     </div>
     
     <div id="controls">
-        <p>WASD - 移动</p>
-        <p>空格 - 跳跃</p>
-        <p>左键 - 破坏</p>
-        <p>右键 - 放置</p>
-        <p>1-7 - 切换物品</p>
+        <p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> - 移动</p>
+        <p><kbd>空格</kbd> - 跳跃</p>
+        <p><kbd>鼠标左键</kbd> - 破坏</p>
+        <p><kbd>鼠标右键</kbd> - 放置</p>
+        <p><kbd>1-9</kbd> - 切换物品</p>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="game.js"></script>
+    
+    <script>
+        // 隐藏加载画面
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('loading').classList.add('hidden');
+            }, 1500);
+            
+            setTimeout(() => {
+                document.getElementById('instruction').classList.add('hidden');
+            }, 5000);
+        });
+        
+        // FPS计数器
+        let fps = 60;
+        let lastTime = performance.now();
+        let frames = 0;
+        
+        function updateFPS() {
+            frames++;
+            const now = performance.now();
+            const delta = now - lastTime;
+            
+            if (delta >= 1000) {
+                fps = frames;
+                document.getElementById('fps-counter').textContent = `FPS: ${fps}`;
+                frames = 0;
+                lastTime = now;
+            }
+            
+            requestAnimationFrame(updateFPS);
+        }
+        
+        requestAnimationFrame(updateFPS);
+        
+        // 热栏选择
+        document.querySelectorAll('.hotbar-slot').forEach((slot, index) => {
+            slot.addEventListener('click', () => {
+                document.querySelectorAll('.hotbar-slot').forEach(s => s.classList.remove('selected'));
+                slot.classList.add('selected');
+            });
+        });
+    </script>
 </body>
 </html>
