@@ -1,3 +1,4 @@
+// server/server.js
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
@@ -6,6 +7,9 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
+
+// 获取端口（Render 会自动设置 PORT 环境变量）
+const PORT = process.env.PORT || 3000;
 
 // 存储所有连接的客户端
 const clients = new Map();
@@ -181,7 +185,6 @@ wss.on('connection', (ws) => {
                     break;
                     
                 case 'placeBlock':
-                    // 添加方块到世界
                     const blockKey = `${data.x},${data.y},${data.z}`;
                     if (!gameState.blocks.has(blockKey)) {
                         console.log(`玩家 ${clientId} 放置方块 at ${data.x},${data.y},${data.z} 类型: ${data.blockType}`);
@@ -193,7 +196,6 @@ wss.on('connection', (ws) => {
                             type: data.blockType
                         });
                         
-                        // 广播给所有客户端（包括自己）
                         const message = {
                             type: 'blockPlaced',
                             clientId: clientId,
@@ -212,14 +214,12 @@ wss.on('connection', (ws) => {
                     break;
                     
                 case 'removeBlock':
-                    // 从世界移除方块
                     const removeKey = `${data.x},${data.y},${data.z}`;
                     if (gameState.blocks.has(removeKey)) {
                         console.log(`玩家 ${clientId} 移除方块 at ${data.x},${data.y},${data.z}`);
                         
                         gameState.blocks.delete(removeKey);
                         
-                        // 广播给所有客户端（包括自己）
                         const message = {
                             type: 'blockRemoved',
                             clientId: clientId,
@@ -266,7 +266,7 @@ function broadcast(message, excludeClientId = null) {
 // 提供静态文件服务
 app.use(express.static(path.join(__dirname, '../public')));
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`服务器运行在 http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`服务器运行在端口 ${PORT}`);
+    console.log(`访问 http://localhost:${PORT} 开始游戏`);
 });
